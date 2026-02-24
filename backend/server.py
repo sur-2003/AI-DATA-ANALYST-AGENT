@@ -23,9 +23,14 @@ from reportlab.lib.units import inch
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# PostgreSQL Database Setup
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://localhost:5432/data_analyst')
-engine = create_engine(DATABASE_URL)
+# Database Setup - Supports both PostgreSQL (production) and SQLite (development/preview)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    # Default to SQLite for easy local development
+    DATABASE_URL = f"sqlite:///{ROOT_DIR}/data_analyst.db"
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

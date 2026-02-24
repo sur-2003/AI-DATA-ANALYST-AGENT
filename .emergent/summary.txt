@@ -1,0 +1,487 @@
+<analysis>**original_problem_statement:**
+The user wants to build a full-stack AI Data Analyst Agent web application.
+
+**PRODUCT REQUIREMENTS:**
+-   **Frontend:** React.js
+-   **Backend:** Python (FastAPI/Flask)
+-   **Database:** PostgreSQL
+-   **Core Functionality:**
+    1.  **Data Ingestion:** Upload Excel (.xlsx) or CSV files. The system should parse, validate, and store the data in PostgreSQL with an auto-generated schema.
+    2.  **Data Analysis:** Interpret natural language queries to perform descriptive, diagnostic, predictive, and prescriptive analysis.
+    3.  **AI Forecasting:** Provide trend forecasts enriched with real-world macroeconomic signals (e.g., policy changes, market news).
+    4.  **Visualization:** Automatically select and render appropriate charts (Line, Bar, Pie, etc.) on the frontend using libraries like Recharts or Chart.js.
+    5.  **PDF Reporting:** Generate and allow downloading of professional, branded PDF reports containing summaries, charts, and forecasts.
+-   **Technology Stack:**
+    -   Frontend: , /, /.
+    -   Backend: , , //, /.
+-   **API Endpoints:**
+    -   
+    -   
+    -   
+    -   
+    -   
+-   **User's Latest Directive:** The user has provided a new, overriding set of instructions. The project must be a **fully local, open-source-ready application** suitable for a portfolio. This means:
+    -   **NO** Emergent platform dependencies, SDKs, watermarks, or branding.
+    -   The code must be Windows-friendly, especially the file upload mechanism.
+    -   All proprietary libraries (like ) must be replaced with standard ones (e.g., usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit SDK).
+    -   All code must be complete and ready to run locally.
+
+**User's preferred language**: English
+
+**what currently exists?**
+The agent has scaffolded a full-stack application by creating multiple files for the frontend and backend. It generated a basic structure including a FastAPI , React components for a welcome page and a dashboard, and CSS files. However, the generated code is tightly coupled with the Emergent platform's proprietary  library and contains platform-specific branding, which the user explicitly wants to remove. Furthermore, the agent incorrectly used **MongoDB** instead of the required **PostgreSQL**.
+
+**Last working item**:
+The agent's last action was to prepare for a major refactoring task based on the user's latest, explicit instructions. The user asked to transform the project into a fully local, open-source application, free of all Emergent platform dependencies. The agent was in the process of inspecting the codebase to identify all areas needing changes.
+
+- Last item agent was working: Auditing the codebase to plan the removal of all Emergent-specific dependencies, fixing the file upload mechanism for local/Windows environments, and replacing the proprietary LLM integration with the standard OpenAI SDK.
+- Status: NOT STARTED
+- Agent Testing Done: N
+- Which testing method agent to use? both
+- User Testing Done: N
+
+**All Pending/In progress Issue list**:
+-   **Issue 1 (P0): Incorrect Database Implementation.** The backend was built using MongoDB, but the project requirement explicitly specifies **PostgreSQL**. The entire data persistence layer is wrong.
+-   **Issue 2 (P0): Platform-Specific Dependencies.** The generated code relies heavily on the  library and other platform-specific conventions. The user has mandated the removal of all such dependencies.
+-   **Issue 3 (P1): Windows File Upload Bug.** The user flagged a potential issue with MIME-type validation for file uploads on Windows and requested a more robust extension-based validation.
+
+Issues Detail:
+-   **Issue 1: Incorrect Database Implementation**
+    -   **Attempted fixes:** None. The agent proceeded with MongoDB without acknowledging the PostgreSQL requirement.
+    -   **Next debug checklist:**
+        1.  Remove all MongoDB-related code (, , BSON ObjectId handling) from .
+        2.  Add PostgreSQL dependencies (, ) to  and install them.
+        3.  Refactor  to use SQLAlchemy for connecting to the PostgreSQL database.
+        4.  Update the data ingestion logic in the  endpoint to create tables and store data in PostgreSQL.
+        5.  Update all data-related endpoints to query PostgreSQL.
+    -   **Why fix this issue and what will be achieved with the fix?** To align the project with the core technical requirements defined by the user. The application cannot function as specified without the correct database.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** backend
+    -   **Blocked on other issue:** None.
+
+-   **Issue 2: Platform-Specific Dependencies**
+    -   **Attempted fixes:** None. The agent just received the request to perform this refactoring.
+    -   **Next debug checklist:**
+        1.  In , replace the  call with the standard usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit library for LLM interaction.
+        2.  Add usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit to  and install it.
+        3.  Update the  file management to use a standard  and load keys for the usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit library (e.g., ).
+        4.  In the frontend code, remove any Made with Emergent badges, watermarks, or tracking scripts.
+        5.  Review all components (, , etc.) and CSS files to strip out any platform-specific styling or logic.
+    -   **Why fix this issue and what will be achieved with the fix?** To meet the user's primary goal of having a clean, portable, open-source-ready project for their portfolio.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on other issue:** None.
+
+-   **Issue 3: Windows File Upload Bug**
+    -   **Attempted fixes:** None.
+    -   **Next debug checklist:**
+        1.  Review the  endpoint in .
+        2.  Ensure file validation is based on the file extension (, ) rather than relying on the  (MIME type) header sent by the browser, which can be inconsistent on Windows.
+        3.  Test the upload functionality using  and by simulating a browser form submission.
+    -   **Why fix this issue and what will be achieved with the fix?** To ensure the core file upload feature works reliably across different operating systems as requested by the user.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** backend
+    -   **Blocked on other issue:** None.
+
+**In progress Task List**:
+-   **Task 1: Major Project Refactoring**
+    -   **Where to resume:** Start by modifying  and  to remove MongoDB and Emergent dependencies, and add PostgreSQL and OpenAI dependencies.
+    -   **What will be achieved with this?** The project will be aligned with the user's latest directive, making it a local, portable application.
+    -   **Status:** NOT STARTED
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on something:** This task encompasses all the pending issues.
+
+**Upcoming and Future Tasks**
+-   **Upcoming Tasks:**
+    -   **(P0) Implement Core Backend Logic:** After refactoring, the actual logic for data analysis, forecasting, and PDF report generation needs to be implemented in . The current files are mostly skeletons.
+    -   **(P1) Implement Core Frontend Logic:** Connect the frontend components to the refactored backend endpoints. Implement state management for handling data, charts, and analysis results.
+    -   **(P1) Build Visualization Component:** Implement the  to dynamically render different chart types (line, bar, pie) using Recharts based on the analysis results from the backend.
+    -   **(P2) PDF Report Generation:** Implement the PDF generation logic on the backend using  or  and create the  endpoint.
+
+**Completed work in this session**
+-   Initial scaffolding of the project structure, creating placeholder files for frontend and backend components.
+-   Installation of initial dependencies (though some are now incorrect).
+-   Generation of technical documentation and a how to run guide (which are now outdated due to the requested refactoring).
+
+**Earlier issues found/mentioned but not fixed**
+-   **Issue 1: Database Mismatch (PostgreSQL vs. MongoDB)**
+    -   **Debug checklist:** See All Pending/In progress Issue list. The agent used the pre-configured  instead of adhering to the  requirement in the problem statement.
+    -   **Why to solve this issue and what will be achieved with this?** This is a fundamental requirement of the project's architecture. Fixing it is critical for project success.
+    -   **Should Test frontend/backend/both after fix:** backend
+    -   **Is recurring issue?** N
+
+**Known issue recurrence from previous fork**
+-   None.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+-   **Frontend:** React, Tailwind CSS, Recharts (planned), Axios
+-   **Backend:** FastAPI, Pandas
+-   **Database:** MongoDB (incorrectly implemented), **PostgreSQL** (required)
+-   **AI:** OpenAI GPT-4o (to be implemented via standard usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit SDK)
+
+**key DB schema**
+The agent implemented schemas for **MongoDB** in , which is incorrect. The schema needs to be redesigned for **PostgreSQL** using SQLAlchemy.
+- **Incorrect (MongoDB):** Schemas for , , etc., were defined using Pydantic models with  handling.
+- **Required (PostgreSQL):** Tables like , , and dynamic data tables need to be defined using SQLAlchemy models.
+
+**changes in tech stack**
+-   **Requested by User:**  library -> standard usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit library.
+-   **Implicitly changed by Agent (Incorrect):**  -> . This needs to be reverted.
+
+**All files of reference**
+-   : Main backend logic. Contains incorrect DB implementation and platform-specific code. **Needs major refactoring.**
+-   : Entry point for file upload. **Needs UI and logic fixes.**
+-   : Main analysis view. **Needs implementation.**
+-   : Contains the original and correct project requirements, including the use of PostgreSQL.
+-   : Generated documentation, now outdated.
+-   : Generated documentation, now outdated.
+
+**Areas that need refactoring**:
+-   The **entire  file** needs to be refactored to use PostgreSQL instead of MongoDB and the standard OpenAI SDK instead of .
+-   The **entire frontend** needs to be reviewed to remove Emergent-specific branding and to correctly implement API calls to the refactored backend.
+-   The file upload logic on both frontend and backend needs to be hardened against Windows-specific issues.
+
+**key api endpoints**
+(As planned in , but logic is placeholder/incorrect)
+-   : Creates a new analysis session.
+-   : Handles file upload.
+-   : Processes a user query.
+-   : Retrieves session data.
+-   : Lists all sessions.
+
+**Critical Info for New Agent**
+1.  **URGENT: Refactor the entire application.** The user's latest message is a hard pivot. You must remove **all** dependencies on the Emergent platform, including the  library, branding, and watermarks. The goal is a clean, local, open-source-style project.
+2.  **CRITICAL: Fix the database.** The original problem statement requires **PostgreSQL**. The previous agent incorrectly used MongoDB. You must migrate the entire backend data layer to use SQLAlchemy with PostgreSQL. This is a non-negotiable requirement.
+3.  **File Upload:** Pay close attention to the file upload mechanism. The user wants it to be robust and Windows-friendly, suggesting extension-based validation instead of relying on MIME types.
+4.  **Ignore Previous Docs:** The  and  files are now obsolete due to the major refactoring required. Do not rely on them.
+
+**documents and test reports created in this job**
+-   /app/how_to_run_locally.md
+-   /app/technical_documentation.md
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **User:** Fix file upload, remove all Emergent branding/SDKs, make the project fully local and open-source ready for a portfolio. (This is the most recent and critical directive).
+2.  **User:** Generate detailed technical documentation for the project.
+3.  **User:** Generate a How to Run This Project Locally guide.
+4.  **User:** (Auto-response) Assume defaults and proceed.
+
+**Project Health Check:**
+-   **Broken:** The application is in a broken and non-functional state. The database choice is incorrect, and it relies on proprietary code that must be removed. It requires a significant refactoring effort before it can meet the user's requirements.
+
+**3rd Party Integrations**
+-   **OpenAI GPT-4o:** Currently planned via  (which uses the Emergent LLM Key). This **MUST BE REPLACED** with the standard usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit Python library, which will require the user to provide their own .
+
+**Testing status**
+-   Testing agent used after significant changes: NO
+-   Troubleshoot agent used after agent stuck in loop: NO
+-   Test files created: []
+-   Known regressions: The entire initial implementation can be considered a regression as it deviates from the core requirements.
+
+**Credentials to test flow:**
+-   An  will be required after refactoring the backend to use the standard usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit library. The agent must ask the user for this key.
+
+**What agent forgot to execute**
+-   The agent completely ignored the **PostgreSQL** database requirement from the initial problem statement and defaulted to MongoDB.
+-   The agent built an application tightly coupled to a proprietary platform, failing to consider the user's implicit context of creating a portable portfolio project, which was later made explicit.</analysis>

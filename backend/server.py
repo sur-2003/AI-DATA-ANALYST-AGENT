@@ -1,17 +1,18 @@
 from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from sqlalchemy import create_engine, Column, String, Integer, DateTime, Text, JSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime, timezone
 import os, uuid, json, io, logging, math, re
 import pandas as pd
 import numpy as np
-
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from openai import OpenAI
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors as rl_colors
@@ -22,15 +23,58 @@ from reportlab.lib.units import inch
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# PostgreSQL Database Setup
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://localhost:5432/data_analyst')
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-app = FastAPI()
+
+# SQLAlchemy Models
+class FileSession(Base):
+    __tablename__ = "file_sessions"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    filename = Column(String, nullable=False)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    row_count = Column(Integer, nullable=False)
+    column_count = Column(Integer, nullable=False)
+    columns = Column(JSON, nullable=False)
+    date_range = Column(JSON, nullable=True)
+    data_quality = Column(JSON, nullable=True)
+    data = Column(JSON, nullable=False)
+
+
+class QueryRecord(Base):
+    __tablename__ = "query_records"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String, nullable=False, index=True)
+    query = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    response = Column(JSON, nullable=True)
+
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="AI Data Analyst Agent", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+# OpenAI Client
+openai_client = None
+def get_openai_client():
+    global openai_client
+    if openai_client is None:
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+        openai_client = OpenAI(api_key=api_key)
+    return openai_client
 
 
 # --- Pydantic Models ---
@@ -151,24 +195,37 @@ CRITICAL RULES:
 """
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 # --- Endpoints ---
 @api_router.get("/")
 async def root():
-    return {"message": "AI Data Analyst Agent API"}
+    return {"message": "AI Data Analyst Agent API", "version": "1.0.0"}
 
 
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
+    db = SessionLocal()
     try:
         filename = file.filename or "unknown.csv"
+        
+        # Extension-based validation (Windows-friendly)
+        ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        if ext not in ('csv', 'xlsx', 'xls'):
+            raise HTTPException(status_code=400, detail="Unsupported format. Use .csv or .xlsx files only.")
+        
         content = await file.read()
 
-        if filename.lower().endswith('.csv'):
+        if ext == 'csv':
             df = pd.read_csv(io.BytesIO(content))
-        elif filename.lower().endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(io.BytesIO(content))
         else:
-            raise HTTPException(status_code=400, detail="Unsupported format. Use .csv or .xlsx")
+            df = pd.read_excel(io.BytesIO(content))
 
         initial_rows = len(df)
         df = df.drop_duplicates()
@@ -189,41 +246,54 @@ async def upload_file(file: UploadFile = File(...)):
         session_id = str(uuid.uuid4())
         records = df_to_records(df)
 
-        session_doc = {
+        # Create session in PostgreSQL
+        session_obj = FileSession(
+            id=session_id,
+            filename=filename,
+            uploaded_at=datetime.now(timezone.utc),
+            row_count=len(df),
+            column_count=len(df.columns),
+            columns=columns_info,
+            date_range=date_range,
+            data_quality=quality,
+            data=records
+        )
+        db.add(session_obj)
+        db.commit()
+
+        return {
             "id": session_id,
             "filename": filename,
-            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_at": session_obj.uploaded_at.isoformat(),
             "row_count": len(df),
             "column_count": len(df.columns),
             "columns": columns_info,
             "date_range": date_range,
-            "data_quality": quality,
-            "data": records,
+            "data_quality": quality
         }
-        await db.sessions.insert_one(session_doc)
-
-        resp = {k: v for k, v in session_doc.items() if k not in ('data', '_id')}
-        return resp
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Upload error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to parse file: {str(e)}")
+    finally:
+        db.close()
 
 
 @api_router.post("/query")
 async def process_query(request: QueryRequest):
+    db = SessionLocal()
     try:
-        session = await db.sessions.find_one({"id": request.session_id}, {"_id": 0})
+        session = db.query(FileSession).filter(FileSession.id == request.session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        data = session.get("data", [])
+        data = session.data or []
         df = pd.DataFrame(data)
 
         stats = ""
-        for ci in session["columns"]:
+        for ci in session.columns:
             stats += f"\n- {ci['name']} ({ci['type']}): "
             if "min" in ci and ci.get("min") is not None:
                 stats += f"min={ci['min']}, max={ci['max']}, mean={ci.get('mean','N/A')}, median={ci.get('median','N/A')}"
@@ -233,10 +303,10 @@ async def process_query(request: QueryRequest):
         sample = df.head(50).to_string(index=False, max_cols=15)
 
         prompt = f"""DATA CONTEXT:
-File: {session['filename']}
-Rows: {session['row_count']} | Columns: {session['column_count']}
-Date Range: {json.dumps(session.get('date_range'))}
-Data Quality: {json.dumps(session.get('data_quality'))}
+File: {session.filename}
+Rows: {session.row_count} | Columns: {session.column_count}
+Date Range: {json.dumps(session.date_range)}
+Data Quality: {json.dumps(session.data_quality)}
 
 COLUMN STATISTICS:{stats}
 
@@ -248,16 +318,19 @@ USER QUERY: {request.query}
 Analyze the data thoroughly and respond with the structured JSON format as specified."""
 
         query_id = str(uuid.uuid4())
-        llm_key = os.environ.get('EMERGENT_LLM_KEY')
-
-        chat = LlmChat(
-            api_key=llm_key,
-            session_id=f"analyst-{query_id}",
-            system_message=ANALYSIS_SYSTEM_PROMPT
+        
+        # Use OpenAI API
+        client = get_openai_client()
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
         )
-        chat.with_model("openai", "gpt-4o")
-
-        response_text = await chat.send_message(UserMessage(text=prompt))
+        
+        response_text = completion.choices[0].message.content
 
         # Parse JSON
         analysis = None
@@ -291,60 +364,119 @@ Analyze the data thoroughly and respond with the structured JSON format as speci
                 "recommendations": []
             }
 
-        query_doc = {
+        # Save query to PostgreSQL
+        query_obj = QueryRecord(
+            id=query_id,
+            session_id=request.session_id,
+            query=request.query,
+            timestamp=datetime.now(timezone.utc),
+            response=analysis
+        )
+        db.add(query_obj)
+        db.commit()
+
+        return {
             "id": query_id,
             "session_id": request.session_id,
             "query": request.query,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": query_obj.timestamp.isoformat(),
             "response": analysis
         }
-        await db.queries.insert_one(query_doc)
-
-        return {k: v for k, v in query_doc.items() if k != '_id'}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Query error: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+    finally:
+        db.close()
 
 
 @api_router.get("/sessions")
 async def list_sessions():
-    sessions = await db.sessions.find({}, {"_id": 0, "data": 0}).sort("uploaded_at", -1).to_list(100)
-    return sessions
+    db = SessionLocal()
+    try:
+        sessions = db.query(FileSession).order_by(FileSession.uploaded_at.desc()).limit(100).all()
+        return [
+            {
+                "id": s.id,
+                "filename": s.filename,
+                "uploaded_at": s.uploaded_at.isoformat() if s.uploaded_at else None,
+                "row_count": s.row_count,
+                "column_count": s.column_count,
+                "columns": s.columns,
+                "date_range": s.date_range,
+                "data_quality": s.data_quality
+            }
+            for s in sessions
+        ]
+    finally:
+        db.close()
 
 
 @api_router.get("/session/{session_id}")
 async def get_session(session_id: str):
-    session = await db.sessions.find_one({"id": session_id}, {"_id": 0, "data": 0})
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return session
+    db = SessionLocal()
+    try:
+        session = db.query(FileSession).filter(FileSession.id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {
+            "id": session.id,
+            "filename": session.filename,
+            "uploaded_at": session.uploaded_at.isoformat() if session.uploaded_at else None,
+            "row_count": session.row_count,
+            "column_count": session.column_count,
+            "columns": session.columns,
+            "date_range": session.date_range,
+            "data_quality": session.data_quality
+        }
+    finally:
+        db.close()
 
 
 @api_router.get("/session/{session_id}/data")
 async def get_session_data(session_id: str, limit: int = 100):
-    session = await db.sessions.find_one({"id": session_id}, {"_id": 0, "data": 1})
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"data": (session.get("data") or [])[:limit]}
+    db = SessionLocal()
+    try:
+        session = db.query(FileSession).filter(FileSession.id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"data": (session.data or [])[:limit]}
+    finally:
+        db.close()
 
 
 @api_router.get("/session/{session_id}/queries")
 async def get_session_queries(session_id: str):
-    queries = await db.queries.find({"session_id": session_id}, {"_id": 0}).sort("timestamp", -1).to_list(100)
-    return queries
+    db = SessionLocal()
+    try:
+        queries = db.query(QueryRecord).filter(
+            QueryRecord.session_id == session_id
+        ).order_by(QueryRecord.timestamp.desc()).limit(100).all()
+        return [
+            {
+                "id": q.id,
+                "session_id": q.session_id,
+                "query": q.query,
+                "timestamp": q.timestamp.isoformat() if q.timestamp else None,
+                "response": q.response
+            }
+            for q in queries
+        ]
+    finally:
+        db.close()
 
 
 @api_router.get("/report/{query_id}/download")
 async def download_report(query_id: str):
+    db = SessionLocal()
     try:
-        query_doc = await db.queries.find_one({"id": query_id}, {"_id": 0})
+        query_doc = db.query(QueryRecord).filter(QueryRecord.id == query_id).first()
         if not query_doc:
             raise HTTPException(status_code=404, detail="Query not found")
 
-        session = await db.sessions.find_one({"id": query_doc["session_id"]}, {"_id": 0, "data": 0})
+        session = db.query(FileSession).filter(FileSession.id == query_doc.session_id).first()
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.75*inch, bottomMargin=0.75*inch, leftMargin=0.75*inch, rightMargin=0.75*inch)
@@ -357,22 +489,22 @@ async def download_report(query_id: str):
         meta_s = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=9, textColor=rl_colors.HexColor('#64748B'))
 
         elements = []
-        resp = query_doc.get("response", {})
+        resp = query_doc.response or {}
 
         elements.append(Paragraph("AI Data Analyst Report", title_s))
         elements.append(Paragraph(f"Generated: {datetime.now(timezone.utc).strftime('%B %d, %Y at %H:%M UTC')}", meta_s))
         elements.append(Spacer(1, 20))
 
         elements.append(Paragraph("Executive Summary", heading_s))
-        elements.append(Paragraph(f"<b>Query:</b> {resp.get('query_understood', query_doc.get('query', ''))}", body_s))
+        elements.append(Paragraph(f"<b>Query:</b> {resp.get('query_understood', query_doc.query or '')}", body_s))
         elements.append(Paragraph(f"<b>Analysis Type:</b> {resp.get('analysis_type', 'N/A').title()}", body_s))
         elements.append(Spacer(1, 10))
 
         if session:
             elements.append(Paragraph("Data Overview", heading_s))
-            elements.append(Paragraph(f"<b>File:</b> {session.get('filename', 'N/A')}", body_s))
-            elements.append(Paragraph(f"<b>Dimensions:</b> {session.get('row_count', 0)} rows x {session.get('column_count', 0)} columns", body_s))
-            dr = session.get('date_range')
+            elements.append(Paragraph(f"<b>File:</b> {session.filename or 'N/A'}", body_s))
+            elements.append(Paragraph(f"<b>Dimensions:</b> {session.row_count or 0} rows x {session.column_count or 0} columns", body_s))
+            dr = session.date_range
             if dr:
                 elements.append(Paragraph(f"<b>Date Range:</b> {dr.get('start', '')} to {dr.get('end', '')}", body_s))
             elements.append(Spacer(1, 10))
@@ -385,7 +517,7 @@ async def download_report(query_id: str):
         viz = resp.get("visualization", {})
         if viz.get("data"):
             elements.append(Paragraph(f"Visualization: {viz.get('title', 'Chart')}", heading_s))
-            elements.append(Paragraph(f"<i>Chart Type: {viz.get('chart_type', 'bar')} — {viz.get('reason', '')}</i>", meta_s))
+            elements.append(Paragraph(f"<i>Chart Type: {viz.get('chart_type', 'bar')} - {viz.get('reason', '')}</i>", meta_s))
             chart_data = viz["data"]
             if chart_data and len(chart_data) > 0:
                 headers = list(chart_data[0].keys())
@@ -423,7 +555,7 @@ async def download_report(query_id: str):
                 elements.append(Paragraph("<b>External Signals Applied:</b>", body_s))
                 for sig in forecast["signals"]:
                     impact_color = '#059669' if sig.get('impact') == 'positive' else '#DC2626' if sig.get('impact') == 'negative' else '#64748B'
-                    elements.append(Paragraph(f"<font color='{impact_color}'>{sig.get('name', '')}</font>: {sig.get('value', '')} — <i>{sig.get('source', '')}</i>", body_s))
+                    elements.append(Paragraph(f"<font color='{impact_color}'>{sig.get('name', '')}</font>: {sig.get('value', '')} - <i>{sig.get('source', '')}</i>", body_s))
             elements.append(Spacer(1, 10))
 
         elements.append(Paragraph("Agent Insight", heading_s))
@@ -448,15 +580,27 @@ async def download_report(query_id: str):
     except Exception as e:
         logger.error(f"Report error: {e}")
         raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
+    finally:
+        db.close()
 
 
 @api_router.delete("/session/{session_id}")
 async def delete_session(session_id: str):
-    result = await db.sessions.delete_one({"id": session_id})
-    await db.queries.delete_many({"session_id": session_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"message": "Session deleted"}
+    db = SessionLocal()
+    try:
+        session = db.query(FileSession).filter(FileSession.id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Delete queries first
+        db.query(QueryRecord).filter(QueryRecord.session_id == session_id).delete()
+        # Delete session
+        db.delete(session)
+        db.commit()
+        
+        return {"message": "Session deleted"}
+    finally:
+        db.close()
 
 
 app.include_router(api_router)
@@ -468,8 +612,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
